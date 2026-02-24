@@ -284,6 +284,33 @@ input[type="tel"] {
   margin-top: 2px;
 }
 
+.form-status {
+  min-height: 20px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.form-status.is-idle {
+  color: var(--muted);
+}
+
+.form-status.is-loading {
+  color: #1d4ed8;
+}
+
+.form-status.is-success {
+  color: #166534;
+}
+
+.form-status.is-error {
+  color: #b91c1c;
+}
+
+button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
 footer {
   border-top: 1px solid var(--line);
   padding: 20px 0 34px;

@@ -1,9 +1,36 @@
 services:
+  db:
+    image: postgres:16-alpine
+    container_name: vibecoding-landing-db
+    environment:
+      POSTGRES_DB: vibecoding
+      POSTGRES_USER: vibecoding
+      POSTGRES_PASSWORD: vibecoding
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vibecoding -d vibecoding"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   app:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: vibecoding-landing-app
+    environment:
+      DB_URL: postgresql://vibecoding:vibecoding@db:5432/vibecoding?schema=public
+      PORT: 3000
     ports:
       - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
+
+volumes:
+  postgres_data:

@@ -202,13 +202,13 @@ function renderApp(): string {
 
             <article class="form-card">
               <h3>Форма предрегистрации</h3>
-              <form action="#" method="post">
+              <form id="lead-form" novalidate>
                 <label for="name">Имя
                   <input id="name" name="name" type="text" placeholder="Введите ваше имя" required />
                 </label>
 
                 <label for="phone">Телефон
-                  <input id="phone" name="phone" type="tel" placeholder="+7 (___) ___-__-__" required />
+                  <input id="phone" name="phone" type="tel" placeholder="+79991234567" required />
                 </label>
 
                 <label class="consent" for="consent">
@@ -216,7 +216,8 @@ function renderApp(): string {
                   <span>Я согласен(а) на обработку персональных данных</span>
                 </label>
 
-                <button class="btn btn-primary" type="submit">Забронировать место в потоке</button>
+                <button id="submit-btn" class="btn btn-primary" type="submit">Забронировать место в потоке</button>
+                <p id="form-status" class="form-status" aria-live="polite"></p>
               </form>
             </article>
           </div>
@@ -230,6 +231,87 @@ function renderApp(): string {
   `;
 }
 
+function normalizePhone(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  return digits ? `+${digits}` : "";
+}
+
+function bindLeadForm(): void {
+  const form = document.getElementById("lead-form") as HTMLFormElement | null;
+  const nameInput = document.getElementById("name") as HTMLInputElement | null;
+  const phoneInput = document.getElementById("phone") as HTMLInputElement | null;
+  const consentInput = document.getElementById("consent") as HTMLInputElement | null;
+  const submitButton = document.getElementById("submit-btn") as HTMLButtonElement | null;
+  const statusElement = document.getElementById("form-status") as HTMLParagraphElement | null;
+
+  if (!form || !nameInput || !phoneInput || !consentInput || !submitButton || !statusElement) {
+    return;
+  }
+
+  const setStatus = (text: string, kind: "idle" | "loading" | "success" | "error"): void => {
+    statusElement.textContent = text;
+    statusElement.className = `form-status is-${kind}`;
+  };
+
+  phoneInput.addEventListener("input", () => {
+    phoneInput.value = normalizePhone(phoneInput.value);
+  });
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const name = nameInput.value.trim();
+    const phone = normalizePhone(phoneInput.value);
+    phoneInput.value = phone;
+
+    if (!name || !phone) {
+      setStatus("Заполните обязательные поля: имя и телефон.", "error");
+      return;
+    }
+
+    if (!/^\+\d+$/.test(phone)) {
+      setStatus("Телефон должен начинаться с '+' и содержать только цифры.", "error");
+      return;
+    }
+
+    if (!consentInput.checked) {
+      setStatus("Подтвердите согласие на обработку персональных данных.", "error");
+      return;
+    }
+
+    submitButton.disabled = true;
+    setStatus("Отправка заявки...", "loading");
+
+    try {
+      const response = await fetch("/api/leads", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ name, phone })
+      });
+
+      const payload = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        if (response.status === 409) {
+          setStatus("Такой контакт уже зарегистрирован.", "error");
+        } else {
+          setStatus(payload.error ?? "Не удалось отправить заявку.", "error");
+        }
+        return;
+      }
+
+      form.reset();
+      setStatus("Заявка успешно отправлена. Мы свяжемся с вами.", "success");
+    } catch (_error) {
+      setStatus("Ошибка сети. Повторите попытку через минуту.", "error");
+    } finally {
+      submitButton.disabled = false;
+    }
+  });
+}
+
 const appRoot = document.getElementById("app");
 
 if (!appRoot) {
@@ -237,3 +319,4 @@ if (!appRoot) {
 }
 
 appRoot.innerHTML = renderApp();
+bindLeadForm();

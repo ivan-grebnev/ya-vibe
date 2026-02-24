@@ -4,18 +4,22 @@
   "private": true,
   "description": "Landing pre-registration app for Vibecoding course",
   "scripts": {
-    "build": "npm run build:client && npm run build:server",
+    "build": "npm run prisma:generate && npm run build:client && npm run build:server",
     "build:client": "esbuild src/client.ts --bundle --outfile=public/app.js --platform=browser --target=es2018",
     "build:server": "tsc -p tsconfig.server.json",
+    "prisma:generate": "prisma generate",
+    "prisma:push": "prisma db push",
     "start": "node dist/server.js"
   },
   "dependencies": {
+    "@prisma/client": "^6.4.1",
     "express": "^4.21.2"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
     "@types/node": "^22.13.10",
     "esbuild": "^0.25.0",
+    "prisma": "^6.4.1",
     "typescript": "^5.8.2"
   }
 }
