@@ -25,6 +25,7 @@ services:
     environment:
       DB_URL: postgresql://vibecoding:vibecoding@db:5432/vibecoding?schema=public
       PORT: 3000
+      WEBHOOK_SECRET: dev_webhook_secret
     ports:
       - "3000:3000"
     depends_on:

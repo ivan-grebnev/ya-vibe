@@ -7,6 +7,8 @@ const app = express();
 const port = Number(process.env.PORT) || 3000;
 const publicDir = path.resolve(process.cwd(), "public");
 const landingPath = path.join(publicDir, "index.html");
+const webhookSecret = process.env.WEBHOOK_SECRET ?? "";
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 app.use(express.json());
 
@@ -42,6 +44,67 @@ app.use(express.static(publicDir));
 
 app.get("/health", (_req, res) => {
   res.status(200).json({ ok: true });
+});
+
+app.post("/api/webhook/payment", async (req, res) => {
+  const requestSecret = req.header("X-Webhook-Secret");
+
+  if (!webhookSecret || requestSecret !== webhookSecret) {
+    return res.status(401).json({ error: "unauthorized" });
+  }
+
+  const eventIdRaw = req.body?.event_id;
+  const eventTypeRaw = req.body?.event_type;
+  const dataRaw = req.body?.data;
+
+  const eventId = typeof eventIdRaw === "string" ? eventIdRaw.trim() : "";
+  const eventType = typeof eventTypeRaw === "string" ? eventTypeRaw.trim() : "";
+
+  if (!eventId || !eventType) {
+    return res.status(400).json({ error: "event_id and event_type are required" });
+  }
+
+  if (!uuidPattern.test(eventId)) {
+    return res.status(400).json({ error: "event_id must be a valid uuid" });
+  }
+
+  let leadId: string | undefined;
+  if (dataRaw && typeof dataRaw === "object" && !Array.isArray(dataRaw)) {
+    const leadIdRaw = (dataRaw as Record<string, unknown>).lead_id;
+    const leadIdCandidate = typeof leadIdRaw === "string" ? leadIdRaw.trim() : "";
+
+    if (leadIdCandidate && uuidPattern.test(leadIdCandidate)) {
+      const lead = await prisma.lead.findUnique({
+        where: { id: leadIdCandidate },
+        select: { id: true }
+      });
+
+      if (lead) {
+        leadId = lead.id;
+      }
+    }
+  }
+
+  try {
+    await prisma.eventLog.create({
+      data: {
+        id: eventId,
+        type: eventType,
+        source: "payment_service",
+        payload: dataRaw as Prisma.InputJsonValue | undefined,
+        leadId
+      }
+    });
+
+    return res.status(200).json({ status: "ok" });
+  } catch (error: unknown) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return res.status(200).json({ status: "duplicate_ignored" });
+    }
+
+    console.error("Failed to save payment webhook event", error);
+    return res.status(500).json({ error: "internal server error" });
+  }
 });
 
 app.post("/api/leads", async (req, res) => {

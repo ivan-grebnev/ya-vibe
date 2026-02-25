@@ -1,11 +1,11 @@
 # Vibecoding Landing App
 
-Frontend+backend приложение лендинга предрегистрации на курс «Вайбкодинг» на TypeScript с API сохранения лидов в Postgres через Prisma.
+Frontend+backend приложение лендинга предрегистрации на курс «Вайбкодинг» на TypeScript с API сохранения лидов и событий в Postgres через Prisma.
 
 ## Что внутри
 
 - `src/client.ts` - frontend-рендер лендинга и отправка формы в API
-- `src/server.ts` - express-сервер и маршрут `POST /api/leads`
+- `src/server.ts` - express-сервер, маршруты `POST /api/leads` и `POST /api/webhook/payment`
 - `src/prisma.ts` - singleton Prisma Client
 - `prisma/schema.prisma` - схема БД (модель `Lead`)
 - `public/index.html` - HTML-точка входа
@@ -40,6 +40,10 @@ docker compose down
 
 Postgres хранит данные в volume `postgres_data`.
 
+В сервис `app` в `docker-compose.yml` добавлена переменная:
+
+- `WEBHOOK_SECRET=dev_webhook_secret` (секрет для внешнего webhook)
+
 ## API
 
 ### POST `/api/leads`
@@ -59,6 +63,38 @@ Postgres хранит данные в volume `postgres_data`.
 - `phone` должен начинаться с `+` и содержать только цифры
 - дубликат `phone` возвращает `409 duplicate contact`
 
+### POST `/api/webhook/payment`
+
+Назначение:
+
+- прием внешних событий оплаты
+- сохранение события в `EventLog` с `source="payment_service"`
+
+Заголовок:
+
+- `X-Webhook-Secret` должен быть равен значению `WEBHOOK_SECRET`
+
+Тело запроса:
+
+```json
+{
+  "event_id": "7d1539b5-0a89-43ef-a993-17742df22390",
+  "event_type": "payment_succeeded",
+  "data": {
+    "lead_id": "be9ed467-044e-425b-bbfa-b0f317b72ee8",
+    "amount": 19900,
+    "currency": "RUB"
+  }
+}
+```
+
+Поведение:
+
+- если секрет неверный: `401 {"error":"unauthorized"}`
+- если событие новое: `200 {"status":"ok"}`
+- если `event_id` уже существует в `EventLog`: `200 {"status":"duplicate_ignored"}`
+- `leadId` в `EventLog` заполняется, если `data.lead_id` передан и существует в таблице `Lead`
+
 ## Seed тестовых данных
 
 Команда seed создает 5 случайных записей в таблице `Lead`.
@@ -74,13 +110,34 @@ Postgres хранит данные в volume `postgres_data`.
 docker compose exec app npm run db:seed
 ```
 
-## Локальный запуск без Docker (опционально)
+## Имитация webhook оплаты
 
-Нужен локальный Postgres и переменная окружения `DB_URL`.
+Добавлена команда:
 
 ```bash
-npm install
-npm run build
-npm run prisma:push
-npm start
+docker compose exec app npm run webhook:payment:simulate -- [lead_id] [event_id]
+```
+
+Параметры:
+
+- `lead_id` (необязательно): если не указан, генерируется случайный UUID
+- `event_id` (необязательно): если не указан, генерируется случайный UUID
+
+Примеры:
+
+```bash
+# Оба параметра сгенерируются автоматически
+docker compose exec app npm run webhook:payment:simulate
+
+# Передать конкретный lead_id
+docker compose exec app npm run webhook:payment:simulate -- be9ed467-044e-425b-bbfa-b0f317b72ee8
+
+# Передать lead_id и event_id
+docker compose exec app npm run webhook:payment:simulate -- be9ed467-044e-425b-bbfa-b0f317b72ee8 7d1539b5-0a89-43ef-a993-17742df22390
+```
+
+При необходимости можно переопределить секрет при запуске команды:
+
+```bash
+docker compose exec -e WEBHOOK_SECRET=dev_webhook_secret app npm run webhook:payment:simulate
 ```
