@@ -57,6 +57,31 @@ curl "https://api.telegram.org/bot<TG_TOKEN>/getUpdates"
 
 3. В ответе взять `result[].message.chat.id` и записать в `TG_CHAT_ID`.
 
+## Демо-запуск
+
+Команда полного демо-сценария:
+
+```bash
+sh scripts/demo-start.sh
+```
+
+Что делает команда:
+
+- копирует `.env.example` в `.env`
+- проставляет demo-значение `WEBHOOK_SECRET=demo_webhook_secret`
+- поднимает только контейнеры `db` и `app` в detached-режиме
+- выполняет `seed` таблицы `Lead`
+- проверяет события `landing_view`, `cta_click`, `lead_created`
+- проверяет webhook-кейсы по сочетаниям `lead_id` и `event_id`, дубликат `event_id` и неверный секрет
+
+Опционально можно передать токен Telegram-бота:
+
+```bash
+sh scripts/demo-start.sh --tg-token <TG_TOKEN>
+```
+
+Тогда после запуска окружения команда вызовет `getUpdates`, извлечет `chat.id`, заполнит `TG_TOKEN` и `TG_CHAT_ID` в `.env` и перезапустит `app`.
+
 ## API
 
 ### POST `/api/leads`
