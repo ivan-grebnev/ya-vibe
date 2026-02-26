@@ -46,22 +46,12 @@ services:
     ports:
       - "80:80"
     entrypoint: ["sh", "-c"]
-    command: |
-      if [ -z "$$SITE_HOST" ]; then
-        echo "SITE_HOST is required";
-        exit 1;
-      fi;
+    command: >
+      if [ -z "$$SITE_HOST" ]; then echo "SITE_HOST is required"; exit 1; fi;
       if [ ! -f "/etc/letsencrypt/live/$$SITE_HOST/fullchain.pem" ]; then
-        certbot certonly \
-          --standalone \
-          --non-interactive \
-          --agree-tos \
-          --register-unsafely-without-email \
-          --preferred-challenges http \
-          -d "$$SITE_HOST";
-      else
-        echo "Certificate already exists for $$SITE_HOST";
-      fi
+      certbot certonly --standalone --non-interactive --agree-tos
+      --register-unsafely-without-email --preferred-challenges http -d "$$SITE_HOST";
+      else echo "Certificate already exists for $$SITE_HOST"; fi
     restart: "no"
 
   nginx:
