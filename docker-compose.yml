@@ -3,11 +3,11 @@ services:
     image: postgres:16-alpine
     container_name: vibecoding-landing-db
     environment:
-      POSTGRES_DB: vibecoding
-      POSTGRES_USER: vibecoding
-      POSTGRES_PASSWORD: vibecoding
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
@@ -23,13 +23,13 @@ services:
       dockerfile: Dockerfile
     container_name: vibecoding-landing-app
     environment:
-      DB_URL: postgresql://vibecoding:vibecoding@db:5432/vibecoding?schema=public
-      PORT: 3000
-      WEBHOOK_SECRET: dev_webhook_secret
-      TG_TOKEN: 8612893541:AAEBUZHgJuWysyDMp3jy8Amyv4f7B8XDsWM
-      TG_CHAT_ID: "45912987"
+      DB_URL: ${DB_URL}
+      PORT: ${PORT}
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET}
+      TG_TOKEN: ${TG_TOKEN}
+      TG_CHAT_ID: ${TG_CHAT_ID}
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     depends_on:
       db:
         condition: service_healthy
