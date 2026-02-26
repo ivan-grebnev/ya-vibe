@@ -113,13 +113,21 @@ assert_count_ge_1() {
 }
 
 echo "Preparing .env from .env.example"
+existing_tg_token=""
+existing_tg_chat_id=""
+if [ -f "${ENV_FILE}" ]; then
+  existing_tg_token="$(sed -n 's/^TG_TOKEN=//p' "${ENV_FILE}" | head -n 1)"
+  existing_tg_chat_id="$(sed -n 's/^TG_CHAT_ID=//p' "${ENV_FILE}" | head -n 1)"
+fi
+
 cp "${ENV_EXAMPLE_FILE}" "${ENV_FILE}"
 update_env_var "WEBHOOK_SECRET" "${DEMO_WEBHOOK_SECRET}"
-update_env_var "TG_TOKEN" ""
-update_env_var "TG_CHAT_ID" ""
-
 if [ -n "${TG_TOKEN_ARG}" ]; then
   update_env_var "TG_TOKEN" "${TG_TOKEN_ARG}"
+  update_env_var "TG_CHAT_ID" ""
+else
+  update_env_var "TG_TOKEN" "${existing_tg_token}"
+  update_env_var "TG_CHAT_ID" "${existing_tg_chat_id}"
 fi
 
 set -a
@@ -144,6 +152,8 @@ if [ -n "${TG_TOKEN_ARG}" ]; then
   fi
 
   update_env_var "TG_CHAT_ID" "${tg_chat_id}"
+  TG_CHAT_ID="${tg_chat_id}"
+  export TG_CHAT_ID
   echo "TG_CHAT_ID=${tg_chat_id} written to .env, restarting app to apply"
   docker compose up -d --build app
   wait_for_app
