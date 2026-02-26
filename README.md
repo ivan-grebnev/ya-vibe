@@ -43,6 +43,19 @@ Postgres хранит данные в volume `postgres_data`.
 В сервис `app` в `docker-compose.yml` добавлена переменная:
 
 - `WEBHOOK_SECRET=dev_webhook_secret` (секрет для внешнего webhook)
+- `TG_TOKEN` (токен Telegram-бота)
+- `TG_CHAT_ID` (chat id получателя сообщений)
+
+Для получения `TG_CHAT_ID`:
+
+1. Написать любое сообщение боту в Telegram.
+2. Выполнить:
+
+```bash
+curl "https://api.telegram.org/bot<TG_TOKEN>/getUpdates"
+```
+
+3. В ответе взять `result[].message.chat.id` и записать в `TG_CHAT_ID`.
 
 ## API
 
@@ -62,6 +75,7 @@ Postgres хранит данные в volume `postgres_data`.
 - `name` и `phone` обязательны
 - `phone` должен начинаться с `+` и содержать только цифры
 - дубликат `phone` возвращает `409 duplicate contact`
+- при успешном создании лида пишется событие `lead_created` в `EventLog` и отправляется уведомление в Telegram
 
 ### POST `/api/webhook/payment`
 

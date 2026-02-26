@@ -8,9 +8,52 @@ const port = Number(process.env.PORT) || 3000;
 const publicDir = path.resolve(process.cwd(), "public");
 const landingPath = path.join(publicDir, "index.html");
 const webhookSecret = process.env.WEBHOOK_SECRET ?? "";
+const tgToken = process.env.TG_TOKEN?.trim() ?? "";
+const tgChatId = process.env.TG_CHAT_ID?.trim() ?? "";
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 app.use(express.json());
+
+function formatLeadCreatedMessage(lead: {
+  id: string;
+  name: string;
+  phone: string;
+  createdAt: Date;
+}): string {
+  return [
+    "lead_created",
+    `ID: ${lead.id}`,
+    `Имя: ${lead.name}`,
+    `Телефон: ${lead.phone}`,
+    `Создан: ${lead.createdAt.toISOString()}`
+  ].join("\n");
+}
+
+async function sendTelegramMessage(text: string): Promise<void> {
+  if (!tgToken || !tgChatId) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        chat_id: tgChatId,
+        text
+      })
+    });
+
+    if (!response.ok) {
+      const responseText = await response.text();
+      console.error("Telegram sendMessage failed", response.status, responseText);
+    }
+  } catch (error: unknown) {
+    console.error("Failed to send Telegram message", error);
+  }
+}
 
 async function writeEventLog(
   type: string,
@@ -138,6 +181,7 @@ app.post("/api/leads", async (req, res) => {
     });
 
     await writeEventLog("lead_created", { leadId: lead.id });
+    await sendTelegramMessage(formatLeadCreatedMessage(lead));
 
     return res.status(201).json({
       id: lead.id,
